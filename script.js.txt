@@ -1,0 +1,91 @@
+// 核心邏輯: script.js
+
+let audioContext = null;
+let isPlaying = false;
+let leftOscillator = null;
+let rightOscillator = null;
+
+const startButton = document.getElementById('startButton');
+const leftFreqInput = document.getElementById('leftFrequency');
+const rightFreqInput = document.getElementById('rightFrequency');
+const statusElement = document.getElementById('status');
+
+function startTone() {
+    // 首次播放前創建 AudioContext (為了解決瀏覽器自動播放限制)
+    if (audioContext === null) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    // 取得頻率值
+    const leftFreq = parseFloat(leftFreqInput.value);
+    const rightFreq = parseFloat(rightFreqInput.value);
+
+    // 1. 創建左耳聲音路徑
+    leftOscillator = audioContext.createOscillator();
+    const leftPanner = audioContext.createStereoPanner();
+    
+    leftOscillator.type = 'sine'; // 正弦波
+    leftOscillator.frequency.setValueAtTime(leftFreq, audioContext.currentTime);
+    
+    leftPanner.pan.setValueAtTime(-1, audioContext.currentTime); // -1 = 完全左耳
+    
+    leftOscillator.connect(leftPanner).connect(audioContext.destination);
+    leftOscillator.start();
+
+    // 2. 創建右耳聲音路徑
+    rightOscillator = audioContext.createOscillator();
+    const rightPanner = audioContext.createStereoPanner();
+
+    rightOscillator.type = 'sine';
+    rightOscillator.frequency.setValueAtTime(rightFreq, audioContext.currentTime);
+
+    rightPanner.pan.setValueAtTime(1, audioContext.currentTime); // 1 = 完全右耳
+
+    rightOscillator.connect(rightPanner).connect(audioContext.destination);
+    rightOscillator.start();
+
+    isPlaying = true;
+    startButton.textContent = '停止播放';
+    statusElement.textContent = `狀態: 正在播放 (左耳: ${leftFreq}Hz, 右耳: ${rightFreq}Hz)`;
+}
+
+function stopTone() {
+    if (leftOscillator) {
+        // 使用一個小的時間漸變來避免「咔嗒」聲 (click)
+        leftOscillator.stop(audioContext.currentTime + 0.05); 
+        leftOscillator = null;
+    }
+    if (rightOscillator) {
+        rightOscillator.stop(audioContext.currentTime + 0.05);
+        rightOscillator = null;
+    }
+
+    isPlaying = false;
+    startButton.textContent = '開始播放';
+    statusElement.textContent = '狀態: 已停止';
+}
+
+startButton.addEventListener('click', () => {
+    if (isPlaying) {
+        stopTone();
+    } else {
+        startTone();
+    }
+});
+
+// 允許在播放時更改頻率
+leftFreqInput.addEventListener('input', () => {
+    if (isPlaying && leftOscillator) {
+        const newFreq = parseFloat(leftFreqInput.value);
+        leftOscillator.frequency.setValueAtTime(newFreq, audioContext.currentTime);
+        statusElement.textContent = `狀態: 正在播放 (左耳: ${newFreq}Hz, 右耳: ${rightOscillator.frequency.value}Hz)`;
+    }
+});
+
+rightFreqInput.addEventListener('input', () => {
+    if (isPlaying && rightOscillator) {
+        const newFreq = parseFloat(rightFreqInput.value);
+        rightOscillator.frequency.setValueAtTime(newFreq, audioContext.currentTime);
+        statusElement.textContent = `狀態: 正在播放 (左耳: ${leftOscillator.frequency.value}Hz, 右耳: ${newFreq}Hz)`;
+    }
+});
